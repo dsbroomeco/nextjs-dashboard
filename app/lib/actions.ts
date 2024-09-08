@@ -74,24 +74,36 @@ export async function createInvoice(prevState: State, formData: FormData) {
     //redirect works by throwing an error, which would be caught by the catch block
     //put it outside the try/catch so it actually works.
   }
-  export async function updateInvoice(id: string, formData: FormData) {
-    const { customerId, amount, status } = UpdateInvoice.parse({
+  export async function updateInvoice(
+    id: string,
+    prevState: State,
+    formData: FormData,
+  ) {
+    const validatedFields = UpdateInvoice.safeParse({
       customerId: formData.get('customerId'),
       amount: formData.get('amount'),
       status: formData.get('status'),
     });
    
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+        message: 'Missing Fields. Failed to Update Invoice.',
+      };
+    }
+   
+    const { customerId, amount, status } = validatedFields.data;
     const amountInCents = amount * 100;
    
     try {
-        await sql`
-            UPDATE invoices
-            SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
-            WHERE id = ${id}
-          `;
-      } catch (error) {
-        return { message: 'Database Error: Failed to Update Invoice.' };
-      }
+      await sql`
+        UPDATE invoices
+        SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+        WHERE id = ${id}
+      `;
+    } catch (error) {
+      return { message: 'Database Error: Failed to Update Invoice.' };
+    }
    
     revalidatePath('/dashboard/invoices');
     redirect('/dashboard/invoices');
